@@ -234,6 +234,7 @@ class NeuralNet(object):
         self.warm_start = warm_start
         self.verbose = verbose
         self.device = device
+        self.interupted = False
 
         self._check_deprecated_params(**kwargs)
         history = kwargs.pop('history', None)
@@ -279,6 +280,7 @@ class NeuralNet(object):
     def get_default_callbacks(self):
         return self._default_callbacks
 
+
     def notify(self, method_name, **cb_kwargs):
         """Call the callback method specified in ``method_name`` with
         parameters specified in ``cb_kwargs``.
@@ -290,7 +292,6 @@ class NeuralNet(object):
         * on_epoch_end
         * on_batch_begin
         * on_batch_end
-
         """
         getattr(self, method_name)(self, **cb_kwargs)
         for _, cb in self.callbacks_:
@@ -331,9 +332,11 @@ class NeuralNet(object):
           * callbacks with and without name
           * initialized and uninitialized callbacks
           * puts PrintLog(s) last
+          * puts EpochTimer(s) second to last.
 
         """
         print_logs = []
+        epoch_timers = []
         for item in self.get_default_callbacks() + (self.callbacks or []):
             if isinstance(item, (tuple, list)):
                 name, cb = item
@@ -345,8 +348,11 @@ class NeuralNet(object):
                     name = cb.__class__.__name__
             if isinstance(cb, PrintLog) or (cb == PrintLog):
                 print_logs.append((name, cb))
+            elif isinstance(cb, EpochTimer) or (cb == EpochTimer):
+                epoch_timers.append((name, cb))
             else:
                 yield name, cb
+        yield from epoch_timers
         yield from print_logs
 
     def initialize_callbacks(self):
@@ -516,8 +522,11 @@ class NeuralNet(object):
         self.module_.train()
         self.optimizer_.zero_grad()
         y_pred = self.infer(Xi, **fit_params)
+        #y_pred.retain_grad()
         loss = self.get_loss(y_pred, yi, X=Xi, training=True)
         loss.backward()
+
+        #print(f"gradient of y_pred: {y_pred.grad}")
 
         self.notify(
             'on_grad_computed',
@@ -707,6 +716,7 @@ class NeuralNet(object):
         try:
             self.fit_loop(X, y, **fit_params)
         except KeyboardInterrupt:
+            self.interupted = True
             pass
         self.notify('on_train_end', X=X, y=y)
         return self
@@ -1401,7 +1411,7 @@ class NeuralNet(object):
 
         """
         with open_file_like(f, 'w') as fp:
-            json.dump(self.history.to_list(), fp)
+            json.dump(self.history.to_list(), fp, indent=2)
 
     def load_history(self, f):
         """Load the history of a ``NeuralNet`` from a json file. See
