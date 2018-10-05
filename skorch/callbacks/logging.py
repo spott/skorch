@@ -91,7 +91,9 @@ class PrintLog(Callback):
             tablefmt='simple',
             floatfmt='.4f',
             stralign='right',
+            ignore_pattern='^_*'
     ):
+        import re
         if isinstance(keys_ignored, str):
             keys_ignored = [keys_ignored]
         self.keys_ignored = keys_ignored
@@ -99,6 +101,8 @@ class PrintLog(Callback):
         self.tablefmt = tablefmt
         self.floatfmt = floatfmt
         self.stralign = stralign
+        if ignore_pattern is not None:
+            self.ignore_regex = re.compile(ignore_pattern)
 
     def initialize(self):
         self.first_iteration_ = True
@@ -132,8 +136,9 @@ class PrintLog(Callback):
     def _sorted_keys(self, keys):
         """Sort keys, dropping the ones that should be ignored.
 
-        The keys that are in ``self.ignored_keys`` or that end on
-        '_best' are dropped. Among the remaining keys:
+        The keys that are in ``self.ignored_keys``, start with an
+        underscore (`_`) or that end on '_best' are dropped. Among
+        the remaining keys:
           * 'epoch' is put first;
           * 'dur' is put last;
           * keys that start with 'event_' are put just before 'dur';
@@ -148,7 +153,8 @@ class PrintLog(Callback):
                     (key in ('epoch', 'dur')) or
                     (key in self.keys_ignored_) or
                     key.endswith('_best') or
-                    key.startswith('event_')
+                    key.startswith('event_') or
+                    self.ignore_regex.fullmatch(key) is not None
             ):
                 sorted_keys.append(key)
 
