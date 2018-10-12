@@ -125,6 +125,14 @@ class Checkpoint(Callback):
         self.f_history = f_history
         self.f_pickle = f_pickle
         self.sink = sink
+        if self.monitor is None:
+            self.name = "all"
+        elif callable(self.monitor):
+            do_checkpoint = self.monitor.__name__
+        elif self.monitor.endswith("_best"):
+            self.name = self.monitor[:-5]
+        else:
+            self.name = self.monitor[:-5]
 
     def on_epoch_end(self, net, **kwargs):
         if self.monitor is None:
@@ -142,11 +150,11 @@ class Checkpoint(Callback):
 
         if do_checkpoint:
             self.save_model(net)
-            self._sink("A checkpoint was triggered in epoch {}.".format(
-                len(net.history) + 1
+            self._sink("A checkpoint was triggered in epoch {} for monitor {}".format(
+                len(net.history) + 1, str(self.monitor)
             ), net.verbose)
 
-        net.history.record('event_cp', bool(do_checkpoint))
+        net.history.record('event_cp_' + self.name, bool(do_checkpoint))
 
     def save_model(self, net):
         """Save the model.
