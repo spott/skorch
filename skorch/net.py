@@ -362,7 +362,7 @@ class NeuralNet(object):
             if isinstance(cb, PrintLog) or (cb == PrintLog):
                 print_logs.append((name, cb, named_by_user))
             elif isinstance(cb, EpochTimer) or (cb == EpochTimer):
-                epoch_timers.append((name, cb))
+                epoch_timers.append((name, cb, named_by_user))
             else:
                 yield name, cb, named_by_user
         yield from epoch_timers
